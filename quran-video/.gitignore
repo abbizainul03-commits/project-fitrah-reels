@@ -1,0 +1,12 @@
+.cache/
+node_modules/
+package-lock.json
+videos/*/build/
+videos/*/*.mp4
+videos/*/*.mp3
+videos/*/*.m4a
+videos/*/*.wav
+videos/*/*.aac
+videos/*/*.ogg
+videos/*/*.opus
+videos/*/*.flac

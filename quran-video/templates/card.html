@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Quran Card</title>
+<style>
+  @font-face { font-family: 'AmiriQuran'; src: url('../fonts/AmiriQuran-Regular.ttf'); }
+  @font-face { font-family: 'NotoMal'; src: url('../fonts/NotoSansMalayalam.ttf'); font-weight: 100 900; }
+  @font-face { font-family: 'Baloo'; src: url('../fonts/BalooChettan2.ttf'); font-weight: 400 800; }
+
+  :root {
+    --gold: #f1dca7;
+    --white: #ffffff;
+    --muted: rgba(255,255,255,.62);
+    --shadow: 0 2px 18px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.85);
+  }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+  .stage { position: absolute; inset: 0; display: none; }
+  .stage.on { display: block; }
+
+  /* ---------- verse card ---------- */
+  #ayah { display: none; align-items: center; justify-content: center; }
+  #ayah.on { display: flex; }
+  .block { width: 1560px; text-align: center; }
+  .ar {
+    font-family: 'AmiriQuran', serif; direction: rtl;
+    color: var(--gold); font-size: 60px; line-height: 1.9;
+    text-shadow: var(--shadow);
+  }
+  .ar .num { font-size: .8em; color: rgba(241,220,167,.85); white-space: nowrap; }
+  .rule { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 26px 0 30px; }
+  .rule span { width: 140px; height: 2px; background: linear-gradient(90deg, transparent, rgba(241,220,167,.75), transparent); }
+  .rule i { width: 10px; height: 10px; transform: rotate(45deg); background: var(--gold); box-shadow: 0 0 12px rgba(241,220,167,.7); }
+  .ml {
+    font-family: 'NotoMal', sans-serif; font-weight: 700;
+    color: var(--white); font-size: 66px; line-height: 1.55;
+    text-shadow: var(--shadow);
+  }
+  .ref {
+    position: absolute; left: 0; right: 0; bottom: 86px; text-align: center;
+    font-family: 'NotoMal', sans-serif; font-weight: 600; font-size: 26px; letter-spacing: 1px;
+    color: var(--muted); text-shadow: var(--shadow);
+  }
+
+  /* ---------- intro card ---------- */
+  #intro { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  #intro.on { display: flex; }
+  .bism { font-family: 'AmiriQuran', serif; font-size: 84px; color: var(--gold); text-shadow: var(--shadow); margin-bottom: 30px; }
+  .kicker { font-family: 'Baloo', sans-serif; font-weight: 700; font-size: 52px; color: var(--white); text-shadow: var(--shadow); }
+  .title { font-family: 'Baloo', sans-serif; font-weight: 800; font-size: 150px; line-height: 1.15; color: var(--white); text-shadow: var(--shadow); }
+  .arname { font-family: 'AmiriQuran', serif; font-size: 64px; color: var(--gold); text-shadow: var(--shadow); margin-top: 6px; }
+  .range { margin-top: 26px; font-family: 'Baloo', sans-serif; font-weight: 600; font-size: 46px; color: var(--muted); text-shadow: var(--shadow);
+           padding: 6px 34px; border: 2px solid rgba(255,255,255,.28); border-radius: 999px; }
+
+  /* ---------- static overlay (vignette + watermark + source) ---------- */
+  #overlay .dim { position: absolute; inset: 0; background: #000; }
+  #overlay .vig { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 55% at 50% 50%, rgba(0,0,0,.28), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.6) 100%); }
+  .wm { position: absolute; top: 46px; right: 56px; display: flex; align-items: center; gap: 14px;
+        font-family: 'Baloo', sans-serif; font-weight: 600; font-size: 30px; color: rgba(255,255,255,.78); text-shadow: var(--shadow); }
+  .wm .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 14px rgba(241,220,167,.8); }
+  .wm img { height: 64px; width: auto; border-radius: 50%; }
+  .src { position: absolute; left: 56px; bottom: 40px; font-family: 'NotoMal', sans-serif; font-weight: 500; font-size: 19px;
+         letter-spacing: .5px; color: rgba(255,255,255,.45); text-shadow: var(--shadow); }
+
+  /* ---------- default animated background (seamless 12s loop) ---------- */
+  #bg { background: linear-gradient(180deg, #050b16 0%, #0a1a2c 55%, #0d2a36 100%); overflow: hidden; }
+  #bg .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  #bg .b1 { width: 900px; height: 600px; left: 8%; top: 40%; background: #12485a; animation: drift1 12s ease-in-out infinite; }
+  #bg .b2 { width: 800px; height: 520px; right: 4%; top: 10%; background: #1b2f5c; animation: drift2 12s ease-in-out infinite; }
+  #bg .b3 { width: 1200px; height: 300px; left: 20%; bottom: -120px; background: #2a5a5c; opacity: .4; animation: drift3 12s ease-in-out infinite; }
+  #bg .star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; animation: tw 6s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(140px,-60px) scale(1.12); } }
+  @keyframes drift2 { 0%,100% { transform: translate(0,0) scale(1.05); } 50% { transform: translate(-160px,80px) scale(.95); } }
+  @keyframes drift3 { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-180px); } }
+  @keyframes tw { 0%,100% { opacity: .15; } 50% { opacity: .85; } }
+</style>
+</head>
+<body>
+  <div id="ayah" class="stage">
+    <div class="block">
+      <div class="ar" id="ar"></div>
+      <div class="rule"><span></span><i></i><span></span></div>
+      <div class="ml" id="ml"></div>
+    </div>
+    <div class="ref" id="ref"></div>
+  </div>
+
+  <div id="intro" class="stage">
+    <div class="bism">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>
+    <div class="kicker" id="kicker"></div>
+    <div class="title" id="title"></div>
+    <div class="arname" id="arname"></div>
+    <div class="range" id="range"></div>
+  </div>
+
+  <div id="overlay" class="stage">
+    <div class="dim" id="dim"></div>
+    <div class="vig"></div>
+    <div class="wm" id="wm"></div>
+    <div class="src" id="src"></div>
+  </div>
+
+  <div id="bg" class="stage">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  </div>
+
+<script>
+  const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+  const toArabicNum = n => String(n).replace(/\d/g, d => AR_DIGITS[d]);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // Shrink the text until the block fits inside maxH (long verses).
+  function fit(block, els, maxH) {
+    for (let i = 0; i < 40 && block.getBoundingClientRect().height > maxH; i++) {
+      els.forEach(el => { el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * 0.95) + 'px'; });
+    }
+  }
+
+  // Seeded stars so the background is identical on every render.
+  (function stars() {
+    let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    const bg = document.getElementById('bg');
+    for (let i = 0; i < 70; i++) {
+      const d = document.createElement('div'); d.className = 'star';
+      d.style.left = (rnd() * 100) + '%'; d.style.top = (rnd() * 60) + '%';
+      d.style.animationDelay = (-rnd() * 6) + 's';
+      const sz = 1.5 + rnd() * 2.5; d.style.width = d.style.height = sz + 'px';
+      bg.appendChild(d);
+    }
+  })();
+
+  // Called by the renderer with one card's data.
+  window.renderCard = async function (c) {
+    document.querySelectorAll('.stage').forEach(s => s.classList.remove('on'));
+    const st = document.getElementById(c.type); st.classList.add('on');
+
+    if (c.type === 'ayah') {
+      const ar = document.getElementById('ar'), ml = document.getElementById('ml');
+      ar.style.fontSize = (c.arSize || 60) + 'px'; ml.style.fontSize = (c.mlSize || 66) + 'px';
+      ar.innerHTML = esc(c.arabic) + ' <span class="num">﴿' + toArabicNum(c.verse) + '﴾</span>';
+      ml.textContent = c.translation;
+      document.getElementById('ref').textContent = c.ref || '';
+      await document.fonts.ready;
+      fit(st.querySelector('.block'), [ar, ml], 780);
+    } else if (c.type === 'intro') {
+      document.getElementById('kicker').textContent = c.kicker || '';
+      document.getElementById('title').textContent = c.title || '';
+      document.getElementById('arname').textContent = c.arname || '';
+      const r = document.getElementById('range'); r.textContent = c.range || ''; r.style.display = c.range ? '' : 'none';
+      document.querySelector('.bism').style.display = c.bismillah === false ? 'none' : '';
+    } else if (c.type === 'overlay') {
+      document.getElementById('wm').innerHTML = c.logo
+        ? '<img src="' + esc(c.logo) + '"><span>' + esc(c.channel) + '</span>'
+        : (c.channel ? '<span class="dot"></span><span>' + esc(c.channel) + '</span>' : '');
+      document.getElementById('src').textContent = c.source || '';
+      document.querySelector('#overlay .vig').style.display = c.vignette === false ? 'none' : '';
+      document.getElementById('dim').style.opacity = c.dim ?? 0.45;
+    }
+    await document.fonts.ready;
+    if (c.logo) await Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+    return true;
+  };
+</script>
+</body>
+</html>
