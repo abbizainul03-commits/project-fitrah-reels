@@ -151,12 +151,40 @@ def fit_segments(segs, k):
     return segs
 
 
+def parse_clock(x):
+    """'2:15' / '1:02:15' / 135 -> seconds"""
+    if isinstance(x, (int, float)):
+        return float(x)
+    sec = 0.0
+    for part in str(x).split(':'):
+        sec = sec * 60 + float(part)
+    return sec
+
+
+def hold_mistakes(segs, mistakes):
+    """Mistake + correction stretches belong to the verse being recited: merge every segment
+    that starts inside a marked stretch into the segment before it, so the verse stays on screen
+    until the reciter correctly moves on."""
+    out = []
+    for s in segs:
+        inside = any(a < s[0] <= b for a, b in mistakes)
+        if inside and out:
+            out[-1][1] = max(out[-1][1], s[1])
+        else:
+            out.append(list(s))
+    return out
+
+
 def cmd_time(a):
     d, p, verses = load_project(a.name)
     audio = find_audio(d, p)
     db = a.silence_db if a.silence_db is not None else p['silence_db']
     ms = a.min_silence if a.min_silence is not None else p['min_silence']
     segs, total = speech_segments(audio, db, ms)
+    mistakes = [(parse_clock(m[0]), parse_clock(m[1])) for m in p.get('mistakes', [])]
+    if mistakes:
+        segs = hold_mistakes(segs, mistakes)
+        print(f'Holding the verse on screen through {len(mistakes)} marked mistake(s)')
     k = p['intro_segments'] + len(verses)
     print(f'Audio: {os.path.basename(audio)} ({fmt(total)}), found {len(segs)} recitation segments, need {k}')
     if len(segs) < k:

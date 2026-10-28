@@ -62,6 +62,18 @@ Your own `background.mp4` / `backgrounds/` folder is used instead when `"backgro
 - `translation`: `mal-abdulhameedmada` (default), `mal-muhammadkarakun` (simpler modern Malayalam), `mal-cheriyamundamab`
   (re-run `new` after changing it)
 
+## Reciter mistakes that can't be cut
+
+If the reciter slips and corrects themselves, mark roughly where it happens in `project.json`
+(from just before the slip to when they continue correctly):
+
+```json
+"mistakes": [["2:10", "2:24"], ["5:41", "5:50"]]
+```
+
+The verse being recited stays on screen through the slip and the correction. The next verse only appears
+once the reciter correctly moves on. Re-run `time`, then `render` or `srt`.
+
 ## If the timings are off
 
 `time` looks for pauses between verses. It prints every verse start time. If something's wrong:
