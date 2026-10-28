@@ -16,7 +16,9 @@ python3 quran.py time ar-rahman-1-40                               # 2. auto-det
 python3 quran.py render ar-rahman-1-40                             # 3. make the MP4
 ```
 
-Output: `videos/<name>/<name>.mp4`. Use `--preview 30` on `render` to check just the first 30 seconds.
+Output: `videos/<name>/<name>.mp4`.
+
+**Editing it yourself instead?** `python3 quran.py srt <name>` gives timed subtitle files (`_malayalam.srt`, `_arabic.srt`, `_arabic+malayalam.srt`) plus a plain `_verses.txt`, to import into CapCut / VN / Premiere. Use `--preview 30` on `render` to check just the first 30 seconds.
 
 ## What goes in a project folder (`videos/<name>/`)
 

@@ -234,6 +234,43 @@ def background_input(d, p, build, fps):
     return ['-stream_loop', '-1', '-i', joined], False
 
 
+def srt_time(t):
+    ms = int(round(max(t, 0) * 1000))
+    return f'{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}'
+
+
+def cmd_srt(a):
+    """Subtitle files for editing the video yourself (CapCut, VN, Premiere...)."""
+    d, p, verses = load_project(a.name)
+    tpath = os.path.join(d, 'timings.json')
+    if not os.path.exists(tpath):
+        cmd_time(a)
+    with open(tpath, encoding='utf-8') as f:
+        ayahs = json.load(f)['ayahs']
+    vmap = {v['verse']: v for v in verses}
+    lead = p['lead']
+    # each verse stays on screen until the next one starts (or 1.5 s after the last one ends)
+    rows = []
+    for i, t in enumerate(ayahs):
+        start = max(0.0, t['start'] - lead)
+        end = ayahs[i + 1]['start'] - lead - 0.05 if i + 1 < len(ayahs) else t['end'] + 1.5
+        rows.append((start, end, vmap[t['verse']]))
+    outs = {
+        'malayalam': lambda v: v['translation'],
+        'arabic': lambda v: f"{v['arabic']} ({v['verse']})",
+        'arabic+malayalam': lambda v: f"{v['arabic']} ({v['verse']})\n{v['translation']}",
+    }
+    for kind, text in outs.items():
+        path = os.path.join(d, f'{a.name}_{kind}.srt')
+        with open(path, 'w', encoding='utf-8-sig') as f:   # BOM helps some editors detect UTF-8
+            for n, (s_, e_, v) in enumerate(rows, 1):
+                f.write(f'{n}\n{srt_time(s_)} --> {srt_time(e_)}\n{text(v)}\n\n')
+        print(f'Saved {path}')
+    with open(os.path.join(d, f'{a.name}_verses.txt'), 'w', encoding='utf-8') as f:
+        for s_, e_, v in rows:
+            f.write(f"[{fmt(s_)}] {v['verse']}\n{v['arabic']}\n{v['translation']}\n\n")
+
+
 def cmd_render(a):
     d, p, verses = load_project(a.name)
     if a.background:
@@ -342,7 +379,8 @@ def main():
     n.add_argument('--translation', default=DEFAULTS['translation'],
                    help='mal-abdulhameedmada | mal-muhammadkarakun | mal-cheriyamundamab | eng-...')
     n.add_argument('--channel')
-    for name, helptext in (('time', 'detect verse timings from the audio'), ('render', 'render the MP4')):
+    for name, helptext in (('time', 'detect verse timings from the audio'), ('render', 'render the MP4'),
+                           ('srt', 'export subtitle files (.srt) to edit the video yourself')):
         s = sub.add_parser(name, help=helptext)
         s.add_argument('name')
         s.add_argument('--silence-db', type=float)
@@ -353,7 +391,7 @@ def main():
             s.add_argument('--keep-build', action='store_true')
             s.add_argument('--background', help='night-sky | gold-smoke | sea-parting | a file in the project folder')
     a = ap.parse_args()
-    {'new': cmd_new, 'time': cmd_time, 'render': cmd_render}[a.cmd](a)
+    {'new': cmd_new, 'time': cmd_time, 'render': cmd_render, 'srt': cmd_srt}[a.cmd](a)
 
 
 if __name__ == '__main__':
