@@ -3,33 +3,50 @@
 //
 //   node render_cards.js stills <jobs.json>
 //       jobs.json = [{ "out": "path.png", "card": { type: "ayah"|"intro"|"overlay", ... } }, ...]
-//   node render_cards.js bgframes <outDir> <seconds> <fps>
+//   node render_cards.js bgframes <outDir> <seconds> <fps>            (default night-sky loop)
+//   node render_cards.js bgstyle <style> <outDir> <seconds> <fps>     (templates/backgrounds/<style>.html, WebGL)
 const fs = require('fs');
 const path = require('path');
 
 const TEMPLATE = 'file://' + path.join(__dirname, 'templates', 'card.html');
+// software WebGL so the shader backgrounds render on machines without a GPU (Colab, servers)
+const GL_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
 async function launch() {
   try {
     const puppeteer = require('puppeteer');
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--force-color-profile=srgb'] });
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--force-color-profile=srgb', ...GL_ARGS] });
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     return { browser, page };
   } catch (e) {
     const { chromium } = require('playwright');
-    const browser = await chromium.launch({ args: ['--force-color-profile=srgb'] });
+    const browser = await chromium.launch({ args: ['--force-color-profile=srgb', ...GL_ARGS] });
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     return { browser, page };
   }
 }
 
 (async () => {
-  const [mode, a, b, c] = process.argv.slice(2);
+  const [mode, a, b, c, e] = process.argv.slice(2);
   const { browser, page } = await launch();
-  await page.goto(TEMPLATE, { waitUntil: 'load' });
+  if (mode !== 'bgstyle') await page.goto(TEMPLATE, { waitUntil: 'load' });
 
-  if (mode === 'stills') {
+  if (mode === 'bgstyle') {
+    // Shader backgrounds are soft, so render at half size; ffmpeg scales them up.
+    const style = a, outDir = b, seconds = Number(c), fps = Number(e);
+    fs.mkdirSync(outDir, { recursive: true });
+    if (page.setViewport) await page.setViewport({ width: 960, height: 540 }); else await page.setViewportSize({ width: 960, height: 540 });
+    page.on('pageerror', err => console.error('background error:', err.message));
+    await page.goto('file://' + path.join(__dirname, 'templates', 'backgrounds', style + '.html'), { waitUntil: 'load' });
+    const total = Math.round(seconds * fps);
+    for (let i = 0; i < total; i++) {
+      await page.evaluate(([t, loop]) => window.drawFrame(t, loop), [i / fps, seconds]);
+      await page.screenshot({ path: path.join(outDir, `f_${String(i).padStart(5, '0')}.png`) });
+      if (i % 60 === 0) console.log(`  background frame ${i}/${total}`);
+    }
+    console.log(`Rendered ${total} background frames`);
+  } else if (mode === 'stills') {
     const jobs = JSON.parse(fs.readFileSync(a, 'utf8'));
     for (const job of jobs) {
       await page.evaluate(card => window.renderCard(card), job.card);

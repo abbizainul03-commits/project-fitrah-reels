@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Gold Smoke</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;width:100vw;height:100vh}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Golden fire-smoke swirling in a wide band across a black screen (Az-Zumar style).
+window.FRAG = `
+vec3 palette(float x){
+  vec3 c = mix(vec3(0.), vec3(.38,.18,.02), smoothstep(.0,.35,x));
+  c = mix(c, vec3(.95,.68,.18), smoothstep(.3,.68,x));
+  c = mix(c, vec3(1.,.93,.70), smoothstep(.68,1.,x));
+  return c;
+}
+void main(){
+  vec2 uv = (gl_FragCoord.xy - .5*uRes) / uRes.y;       // y in -.5..5
+  float a = TAU * uTime / uLoop;
+  vec2 o = .55*vec2(cos(a), sin(a));                     // circular path in noise space = seamless loop
+  vec2 p = uv*vec2(1.6, 2.6);
+  vec2 q = vec2(fbm(p + o), fbm(p + vec2(5.2,1.3) - o));
+  vec2 r = vec2(fbm(p + 3.5*q + vec2(1.7,9.2) + .6*o.yx), fbm(p + 3.5*q + vec2(8.3,2.8) - .6*o));
+  float f = fbm(p + 3.*r);
+  float strands = pow(1. - abs(2.*fbm(p*1.4 + 2.5*r + o) - 1.), 7.);   // thin bright wisps
+  float smoke = smoothstep(.3, .9, f) * .8 + strands * .9;
+  // irregular horizontal band
+  float edge = .17 + .09*fbm(vec2(uv.x*2.5, 3.) + o) ;
+  float band = smoothstep(edge + .08, edge - .06, abs(uv.y + .03*sin(uv.x*3.)));
+  float sides = smoothstep(.98, .45, abs(uv.x));
+  float v = smoke * band * sides;
+  // embers
+  vec2 g = floor(uv*70.); float h = hash(g);
+  float dot_ = smoothstep(.3, .0, length(fract(uv*70.) - .5));
+  float ember = step(.992, h) * dot_ * (.5+.5*sin(a*3. + h*60.)) * band * sides;
+  vec3 col = palette(clamp(v, 0., 1.)) + vec3(1.,.85,.45)*ember;
+  col += vec3(.22,.12,0.) * band * sides * .25;          // warm haze inside the band
+  outColor = vec4(col, 1.);
+}`;
+</script>
+<script src="_harness.js"></script>
+</body></html>

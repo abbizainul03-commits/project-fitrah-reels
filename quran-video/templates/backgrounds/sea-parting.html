@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sea Parting</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;width:100vw;height:100vh}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Parting of the sea: two towering walls of water, light pouring through the gap,
+// a wet seabed path leading to the horizon (Taha style).
+window.FRAG = `
+// seamless flowing noise: blend two phases of a linearly moving field
+float flowFbm(vec2 p, vec2 vel){
+  float k = uTime / uLoop;
+  return mix(fbm(p - vel*uTime), fbm(p - vel*(uTime - uLoop)), k);
+}
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes;                // 0..1, y up
+  float asp = uRes.x / uRes.y;
+  float hz = .40;                                  // horizon height
+  float d = abs(uv.x - .5) * asp;                  // horizontal distance from centre (aspect-correct)
+  float a = TAU * uTime / uLoop;
+
+  // ---- sky (seen through the V-shaped gap) ----
+  float glow = exp(-length(vec2((uv.x-.5)*asp*1.4, (uv.y-hz-.06)*2.2)) * 3.2);
+  float clouds = fbm(vec2(uv.x*3. + .3*cos(a), uv.y*6. + .3*sin(a)));
+  vec3 sky = mix(vec3(.42,.55,.68), vec3(.92,.95,1.), smoothstep(.0,.9,glow));
+  sky = mix(sky, vec3(.80,.84,.90), smoothstep(.45,.8,clouds)*.6);
+  sky = mix(sky, vec3(.30,.38,.48), smoothstep(.55,.85,clouds)*smoothstep(.6,1.,uv.y)*.6);
+  sky += vec3(1.,.98,.92) * glow * 1.1;
+
+  // ---- seabed path ----
+  float below = hz - uv.y;
+  vec3 ground = vec3(0.);
+  if (below > 0.) {
+    float z = .06 / (below + .004);                // depth along the path
+    vec2 gp = vec2((uv.x-.5)*asp * z * 1.4, z);
+    float tex = fbm(gp*vec2(2.,1.5));
+    float wet = smoothstep(.45,.65, fbm(gp*vec2(1.2,.8) + 3.));             // puddles
+    float ripple = fbm(gp*vec2(8.,4.) + vec2(.3*cos(a), .3*sin(a)));
+    ground = mix(vec3(.03,.035,.04), vec3(.13,.12,.11), tex);
+    float streak = exp(-pow((uv.x-.5)*asp*(2. + 9.*below), 2.));              // light reflected down the path
+    float shine = smoothstep(.35,.75, ripple);
+    ground += vec3(.85,.92,1.) * streak * (.35 + .65*wet) * (.4 + .6*shine) * (1.15 - below*1.6);
+    ground += vec3(.55,.68,.8) * wet * shine * .22 * exp(-below*3.);              // sky glints in puddles
+    ground = mix(ground, sky*.9, smoothstep(.025,.0,below));                    // haze right at horizon
+  }
+  vec3 col = uv.y > hz ? sky : ground;
+
+  // ---- water walls ----
+  float pathW = .045 + .95*max(below, 0.);            // path half-width below horizon
+  float edgeN = flowFbm(vec2(uv.y*5., d*2.), vec2(-.8, 0.)) - .5;
+  float wallTop = hz + .02 + 1.3*pow(max(d - .05, 0.), .8);   // wall crest rises toward the edges
+  float inner = d - pathW + .08*edgeN*(.4 + 1.5*abs(uv.y - hz));               // >0 means inside a wall horizontally
+  float wall = smoothstep(.0, .015, inner);
+  float crestN = flowFbm(vec2(uv.x*12., uv.y*5.), vec2(0., .7));
+  float crest = smoothstep(wallTop + .04*crestN, wallTop - .03, uv.y);
+  wall *= crest;
+  if (wall > 0.) {
+    vec2 wp = vec2(uv.x*asp*6., uv.y*3.);
+    float big = flowFbm(wp*vec2(.5,.4), vec2(0., -.25));
+    float stream = flowFbm(wp*vec2(1.2,.3), vec2(0., -.55));
+    float detail = flowFbm(wp*vec2(3.,1.2), vec2(0., -1.2));
+    float face = .4*big + .35*stream + .25*detail;
+    vec3 deep = vec3(.02,.06,.09), mid = vec3(.06,.20,.30), lite = vec3(.50,.70,.80);
+    vec3 w = mix(deep, mid, smoothstep(.35,.7,face));
+    float lit = exp(-max(inner,0.)*9.);                   // bright where it faces the light
+    w = mix(w, lite, lit*smoothstep(.3,.75,face));
+    w += vec3(.8,.9,1.) * pow(smoothstep(.55,.9,detail),2.) * (.2 + .8*lit);     // foam streaks
+    float churn = flowFbm(wp*vec2(4.,2.5) + 7., vec2(0., -1.6));
+    w += vec3(.7,.82,.9) * smoothstep(.62,.85,churn) * (.15 + .5*lit);             // white water
+    w += vec3(.75,.85,.92) * exp(-max(inner,0.)*40.) * .6;                          // bright rim at the edge
+    float nearCrest = smoothstep(wallTop - .15, wallTop, uv.y);
+    w = mix(w, vec3(.78,.85,.90), nearCrest*smoothstep(.45,.85,crestN)*.85);    // white spray on top
+    w += vec3(.6,.75,.85) * smoothstep(.05,.0,below+.0)*smoothstep(-.05,.0,below)*.0;
+    w *= .6 + .4*exp(-max(inner,0.)*1.5);                                      // darker away from the gap
+    col = mix(col, w, wall);
+  }
+
+  // ---- mist near the floor, light bloom ----
+  float mist = flowFbm(vec2(uv.x*3., uv.y*8.), vec2(.25, 0.)) ;
+  float inGap = smoothstep(.0, -.08, d - pathW - .15);                       // only in/near the gap
+  col += vec3(.75,.82,.9) * smoothstep(.12,.0,abs(uv.y - hz)) * mist * .45 * inGap;
+  col += vec3(1.,.97,.9) * glow * .25;
+  // vignette, darker top
+  col *= mix(.35, 1., smoothstep(1.15, .35, length((uv - vec2(.5,.45))*vec2(1.,1.2))));
+  col *= mix(1., .55, smoothstep(.6, 1., uv.y) * smoothstep(.0, .9, d));
+  outColor = vec4(pow(col, vec3(1.05)), 1.);
+}`;
+</script>
+<script src="_harness.js"></script>
+</body></html>

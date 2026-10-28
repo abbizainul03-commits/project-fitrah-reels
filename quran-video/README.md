@@ -26,9 +26,28 @@ Output: `videos/<name>/<name>.mp4`. Use `--preview 30` on `render` to check just
 | `project.json` | settings (see below) |
 | `verses.json` | Arabic + translation (downloaded; you can edit wording) |
 | `timings.json` | when each verse starts (made by `time`, editable) |
-| `background.mp4` or `background.jpg` | optional: your background. Without it, a calm animated night-sky loop is used |
+| `background.mp4` or `background.jpg` | optional: your own background footage/photo |
 | `backgrounds/` folder | optional: several clips/photos (sea, sand, mountains…). They play one after another, like the reference |
 | `logo.png` | optional: round channel logo for the watermark |
+
+## Backgrounds
+
+Three animated backgrounds are built in (no footage needed). Set `"background"` in `project.json`,
+or pass `--background` to `render`:
+
+| Name | Look |
+|---|---|
+| `night-sky` | calm dark-blue sky with soft drifting light and stars (default) |
+| `gold-smoke` | golden fire-smoke swirling in a band across a black screen (like MercifulServant's *Az-Zumar*) |
+| `sea-parting` | two towering walls of water, light pouring through the gap, wet path to the horizon (like *Taha*) |
+
+```bash
+python3 quran.py render ar-rahman-1-40 --background gold-smoke
+```
+
+The first time you use one, it renders a 12–16 s seamless loop (about 3–4 minutes; saved in `.cache/`, so it's
+instant after that). To change how they look, edit `templates/backgrounds/<name>.html`.
+Your own `background.mp4` / `backgrounds/` folder is used instead when `"background"` is left empty.
 
 ## Settings in `project.json`
 
@@ -36,7 +55,8 @@ Output: `videos/<name>/<name>.mp4`. Use `--preview 30` on `render` to check just
 - `surah_name_ml`: surah name in Malayalam for the title card (e.g. `"അർറഹ്മാൻ"`)
 - `intro_segments`: what the reciter says **before verse 1**: `1` = Bismillah (default), `2` = Ta'awwudh + Bismillah, `0` = nothing
 - `intro_hold`: seconds the title card shows before the recitation starts (default 2.5)
-- `dim`: how much to darken the background (0–1, default 0.45). `blur`: e.g. 6 to soften busy footage
+- `background`: see above
+- `dim`: how much to darken the background (0–1; default 0.45, or less for gold-smoke / sea-parting). `blur`: e.g. 6 to soften busy footage
 - `translation`: `mal-abdulhameedmada` (default), `mal-muhammadkarakun` (simpler modern Malayalam), `mal-cheriyamundamab`
   (re-run `new` after changing it)
 
@@ -78,6 +98,7 @@ Speed: about 1 minute of rendering per minute of video on a 4-core machine (Cola
 - `quran.py`: the tool (fetch → time → render)
 - `render_cards.js`: renders text cards with Puppeteer or Playwright
 - `templates/card.html`: the design (fonts, colours, layout). Edit this to restyle
+- `templates/backgrounds/`: the generated backgrounds (WebGL shaders)
 - `fonts/`: Amiri Quran (Arabic), Noto Sans Malayalam (verses), Baloo Chettan 2 (titles), all SIL OFL
 
 Text source: [fawazahmed0/quran-api](https://github.com/fawazahmed0/quran-api) (Uthmani Hafs Arabic + Malayalam translations).

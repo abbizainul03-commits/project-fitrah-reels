@@ -28,7 +28,8 @@ DEFAULTS = {
     'lead': 0.25,             # show each verse this many seconds before the reciter starts it
     'fade': 0.4,
     'tail': 2.0,              # seconds held after the audio ends
-    'dim': 0.45,              # darken the background (0 = none, 1 = black)
+    'background': '',         # '' = auto (your files, else night-sky) | night-sky | gold-smoke | sea-parting | a file name
+    'dim': None,              # darken the background (0 = none, 1 = black); default depends on the background
     'blur': 0,                # blur the background (0 = off, try 6)
     'fps': 30,
     'silence_db': -35,
@@ -174,17 +175,26 @@ def cmd_time(a):
 
 
 # ---------------------------------------------------------------- render
-def default_background(fps):
+# Generated (no footage needed) backgrounds: name -> (loop seconds, default dim)
+STYLES = {'night-sky': (12, 0.45), 'gold-smoke': (16, 0.0), 'sea-parting': (16, 0.05)}
+
+
+def default_background(fps, style='night-sky'):
     cache = os.path.join(ROOT, '.cache')
-    out = os.path.join(cache, f'default_bg_{fps}.mp4')
+    out = os.path.join(cache, f'{style}_{fps}.mp4')
     if os.path.exists(out):
         return out
     frames = os.path.join(cache, 'bgframes')
     shutil.rmtree(frames, ignore_errors=True)
-    print('Rendering default background loop (one time)...')
-    run(['node', os.path.join(ROOT, 'render_cards.js'), 'bgframes', frames, '12', str(fps)])
+    loop = STYLES[style][0]
+    print(f'Rendering "{style}" background loop (one time, cached in .cache/)...')
+    js = os.path.join(ROOT, 'render_cards.js')
+    if style == 'night-sky':
+        run(['node', js, 'bgframes', frames, str(loop), str(fps)])
+    else:
+        run(['node', js, 'bgstyle', style, frames, str(loop), str(fps)])
     run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(fps), '-i', os.path.join(frames, 'f_%05d.png'),
-         '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', out])
+         '-vf', f'scale={W}:{H}:flags=lanczos', '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', out])
     shutil.rmtree(frames, ignore_errors=True)
     return out
 
@@ -192,6 +202,8 @@ def default_background(fps):
 def background_input(d, p, build, fps):
     """Returns (ffmpeg input args, is_still_image) for the background."""
     norm = f'scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={fps},setsar=1'
+    if p.get('background') in STYLES:
+        return ['-stream_loop', '-1', '-i', default_background(fps, p['background'])], False
     if p.get('background'):
         cands = [os.path.join(d, p['background'])]
     else:
@@ -224,6 +236,10 @@ def background_input(d, p, build, fps):
 
 def cmd_render(a):
     d, p, verses = load_project(a.name)
+    if a.background:
+        p['background'] = a.background
+    if p['dim'] is None:
+        p['dim'] = STYLES.get(p['background'], (0, 0.45))[1]
     tpath = os.path.join(d, 'timings.json')
     if not os.path.exists(tpath):
         cmd_time(a)
@@ -335,6 +351,7 @@ def main():
             s.add_argument('--preview', type=float, help='only render the first N seconds')
             s.add_argument('--x264-preset', default='veryfast', help='ultrafast for quick tests, slow for max quality')
             s.add_argument('--keep-build', action='store_true')
+            s.add_argument('--background', help='night-sky | gold-smoke | sea-parting | a file in the project folder')
     a = ap.parse_args()
     {'new': cmd_new, 'time': cmd_time, 'render': cmd_render}[a.cmd](a)
 
